@@ -3,13 +3,13 @@
 # Info   :  R script for constructing 10 fundus centile charts, each based  #
 #           on a different dimensionless (unitless) fundus imaging feature  #
 
-# install.packages('quantregGrowth')
 library(quantregGrowth)
 library(vctrs)
 library(dplyr)
 library(tidyr)
 rm(list=rm(list=ls()))
 # setwd('..')
+source(file.path('code', 'utils.R')) # get helper functions
 
 
 
@@ -70,97 +70,153 @@ d$sex            <- factor(d$sex)
 
 #### Apply selection criteria ####
 
-# Remove eyes with SER > 0 (43528 eyes of 27039 IDs remained)
-inputD           <- subset(d, SER <= 0)
-nrow(inputD); length(unique(inputD$id))
+# Remove eyes with SER > 0 (43528 eyes of 27039 IDs eligible)
+d                <- subset(d, SER <= 0)
+initialD         <- d       
+nrow(d); length(unique(d$id))
 
 # Remove eyes with NA value for any of the features considered (failed computation)
-# 43147 eyes of 26845 IDs remained
-inputD           <- inputD[!is.na(inputD$FD_artery) & !is.na(inputD$FD_vein) & !is.na(inputD$AVR) & !is.na(inputD$Tortuosity_density_artery) & !is.na(inputD$Tortuosity_density_vein) & !is.na(inputD$conc_rp_artery) & !is.na(inputD$conc_rp_vein) & !is.na(inputD$DFD_DML_ratio) & !is.na(inputD$discTilt) & !is.na(inputD$absDiscTors), ]
-nrow(inputD); length(unique(inputD$id))
+# 43147 eyes of 26845 IDs eligible 
+d                <- d[!is.na(d$FD_artery) & !is.na(d$FD_vein) & !is.na(d$AVR) & !is.na(d$Tortuosity_density_artery) & !is.na(d$Tortuosity_density_vein) & !is.na(d$conc_rp_artery) & !is.na(d$conc_rp_vein) & !is.na(d$DFD_DML_ratio) & !is.na(d$discTilt) & !is.na(d$absDiscTors), ]
+nrow(d); length(unique(d$id))
+removed          <- setdiff(initialD[c('id', 'SER')], d[c('id', 'SER')])
+nrow(removed)
+table(removed$SER <= -6 & removed$SER >= -12)                       # 77 non-eligible eyes between -6 and -12D
+table(removed$SER < -12)                                            # 29 non-eligible eyes < -12D
 
-# Remove eyes with ≥1 feature in the top and bottom 0.1% of their respective distributions
-# 42339 eyes of 26556 IDs remained
-arteryFDpassed   <- inputD$FD_artery > quantile(inputD$FD_artery, 0.001) & inputD$FD_artery < quantile(inputD$FD_artery, 0.999) 
-veinFDpassed     <- inputD$FD_vein > quantile(inputD$FD_vein, 0.001) & inputD$FD_vein < quantile(inputD$FD_vein, 0.999) 
-AVRpassed        <- inputD$AVR > quantile(inputD$AVR, 0.001) & inputD$AVR < quantile(inputD$AVR, 0.999)
-arteryTortPassed <- inputD$Tortuosity_density_artery > quantile(inputD$Tortuosity_density_artery, 0.001) & inputD$Tortuosity_density_artery < quantile(inputD$Tortuosity_density_artery, 0.999) 
-veinTortPassed   <- inputD$Tortuosity_density_vein > quantile(inputD$Tortuosity_density_vein, 0.001) & inputD$Tortuosity_density_vein < quantile(inputD$Tortuosity_density_vein, 0.999) 
-arteryConcPassed <- inputD$conc_rp_artery > quantile(inputD$conc_rp_artery, 0.001) & inputD$conc_rp_artery < quantile(inputD$conc_rp_artery, 0.999)
-veinConcPassed   <- inputD$conc_rp_vein > quantile(inputD$conc_rp_vein, 0.001) & inputD$conc_rp_vein < quantile(inputD$conc_rp_vein, 0.999) 
-DFD_DMLpassed    <- inputD$DFD_DML_ratio > quantile(inputD$DFD_DML_ratio, 0.001) & inputD$DFD_DML_ratio < quantile(inputD$DFD_DML_ratio, 0.999) 
-discTiltPassed   <- inputD$discTilt > quantile(inputD$discTilt, 0.001) & inputD$discTilt < quantile(inputD$discTilt, 0.999)
-discTorsPassed   <- inputD$absDiscTors > quantile(inputD$absDiscTors, 0.001) & inputD$absDiscTors < quantile(inputD$absDiscTors, 0.999)
-includeBoolean   <- arteryFDpassed & veinFDpassed & AVRpassed & arteryTortPassed & veinTortPassed & arteryConcPassed & veinConcPassed & DFD_DMLpassed & discTiltPassed & discTorsPassed
-inputD           <- inputD[includeBoolean, ]
-nrow(inputD); length(unique(inputD$id))
+# Remove eyes with ≥1 feature in the top and bottom 0.1% of their respective distributions (create a Boolean variable indicating outliers)
+# 42339 eyes of 26556 IDs eligible 
+includeBoolean   <- inlier(d$FD_artery) & inlier(d$FD_vein) & inlier(d$AVR) & inlier(d$Tortuosity_density_artery) & inlier(d$Tortuosity_density_vein) & inlier(d$conc_rp_artery) & inlier(d$conc_rp_vein) & inlier(d$DFD_DML_ratio) & inlier(d$discTilt) & inlier(d$absDiscTors) 
+d$outlier        <- ifelse(includeBoolean, F, T)
+nrow(subset(d, !outlier)); length(unique(subset(d, !outlier)$id))
+table(subset(d, outlier)$SER <= -6 & subset(d, outlier)$SER >= -12) # 125 non-eligible eyes between -6 and -12D
+table(subset(d, outlier)$SER < -12)                                 # 28 non-eligible eyes < -12D
+
+################################################################################################
+# For SENSITIVITY ANALYSIS 5 in 'survivalAnalyses.R': set threshold at 0.01% rather than 0.1% 
+# Create a Boolean variable indicating outliers based on this new threshold
+includeBooleanSA <- inlier(d$FD_artery, 0.01) & inlier(d$FD_vein, 0.01) & inlier(d$AVR, 0.01) & inlier(d$Tortuosity_density_artery, 0.01) & inlier(d$Tortuosity_density_vein, 0.01) & inlier(d$conc_rp_artery, 0.01) & inlier(d$conc_rp_vein, 0.01) & inlier(d$DFD_DML_ratio, 0.01) & inlier(d$discTilt, 0.01) & inlier(d$absDiscTors, 0.01) 
+d$outlierSA      <- ifelse(includeBooleanSA, F, T)
+################################################################################################
 
 # Remove eyes with myopia > 12D (imprecise estimates beyond this level due to sparse data, ~0.5% of eyes)
-# 42130 eyes of 26456 IDs remained 
-quantile(inputD$SER, 0.005)
-inputD           <- subset(inputD, SER >= -12)
-nrow(inputD); length(unique(inputD$id))
+# 42130 eyes of 26456 IDs eligible 
+quantile(subset(d, !outlier)$SER, 0.005)
+d                <- subset(d, SER >= -12)
+nrow(subset(d, !outlier)); length(unique(subset(d, !outlier)$id))
 
 # Remove participants with a history of lens extraction surgery at baseline
 # 41513 eyes of 26014 IDs remained
-inputD           <- subset(inputD, catSurgery1 > visitDate | is.na(catSurgery1))
-nrow(inputD); length(unique(inputD$id))
+d                <- subset(d, catSurgery1 > visitDate | is.na(catSurgery1))
+nrow(subset(d, !outlier)); length(unique(subset(d, !outlier)$id))
 
 # Remove eyes with self-reported cataract surgery 
 # 40258 eyes of 25222 IDs remained remained (1255 eyes removed)
-inputD           <- subset(inputD, cataractSurgery_selfReported == F & refractiveLaser_selfReported == F)
-nrow(inputD); length(unique(inputD$id))
+d                <- subset(d, cataractSurgery_selfReported == F & refractiveLaser_selfReported == F)
+nrow(subset(d, !outlier)); length(unique(subset(d, !outlier)$id))
 
 # Save dataframe as 'FunSI'
-write.csv(inputD, file.path('data', 'FunSI.csv'), row.names = F)
+write.csv(d, file.path('data', 'FunSI.csv'), row.names = F)
 
 
 
 
 #### Estimate SER-specific centiles for each of the 10 imaging features using quantile regression ####
 
+# Randomly select one eye if both eyes of an individual were available (25,222 eyes)
+set.seed(1)
+inputD           <- subset(d, !outlier) %>% group_by(id) %>% slice_sample(n = 1)
+nrow(inputD)
+
 # Extract relevant columns
 inputD           <- inputD %>% select(name, age, sex, catSurgery1, SER, FD_artery, FD_vein, AVR, Tortuosity_density_artery, Tortuosity_density_vein, conc_rp_artery, conc_rp_vein, DFD_DML_ratio, discTilt, absDiscTors)
- 
+
+# Start estimating 
 # Arterial fractal dimension (save as 'm1')
 m1               <- gcrq(FD_artery ~ ps(SER), data=inputD, tau=seq(0.05, 0.95, 0.05), n.boot=50)
 saveRDS(m1, file.path('fittedCentileCurves', 'm1.rds'))
-
 # Venous fractal dimension (save as 'm2')
 m2               <- gcrq(FD_vein ~ ps(SER), data=inputD, tau=seq(0.05, 0.95, 0.05), n.boot=50)
 saveRDS(m2, file.path('fittedCentileCurves', 'm2.rds'))
-
 # AVR (save as 'm3')
 m3               <- gcrq(AVR ~ ps(SER), data=inputD, tau=seq(0.05, 0.95, 0.05), n.boot=50)
 saveRDS(m3, file.path('fittedCentileCurves', 'm3.rds'))
-
 # Arterial tortuosity (save as 'm4')
 m4               <- gcrq(Tortuosity_density_artery ~ ps(SER), data=inputD, tau=seq(0.05, 0.95, 0.05), n.boot=50)
 saveRDS(m4, file.path('fittedCentileCurves', 'm4.rds'))
-
 # Venous tortuosity (save as 'm5')
 m5               <- gcrq(Tortuosity_density_vein ~ ps(SER), data=inputD, tau=seq(0.05, 0.95, 0.05), n.boot=50)
 saveRDS(m5, file.path('fittedCentileCurves', 'm5.rds'))
-
 # Arterial concavity (save as 'm6')
 m6               <- gcrq(conc_rp_artery ~ ps(SER), data=inputD, tau=seq(0.05, 0.95, 0.05), n.boot=50)
 saveRDS(m6, file.path('fittedCentileCurves', 'm6.rds'))
-
 # Venous concavity (save as 'm7')
 m7               <- gcrq(conc_rp_vein ~ ps(SER), data=inputD, tau=seq(0.05, 0.95, 0.05), n.boot=50)
 saveRDS(m7, file.path('fittedCentileCurves', 'm7.rds'))
-
 # DFD_DML_ratio (save as 'm8')
 m8               <- gcrq(DFD_DML_ratio ~ ps(SER), data=inputD, tau=seq(0.05, 0.95, 0.05), n.boot=50)
 saveRDS(m8, file.path('fittedCentileCurves', 'm8.rds'))
-
 # Disc tilt (save as 'm9')
-m9               <- gcrq(tilt ~ ps(SER), data=inputD, tau=seq(0.05, 0.95, 0.05), n.boot=50)
+m9               <- gcrq(discTilt ~ ps(SER), data=inputD, tau=seq(0.05, 0.95, 0.05), n.boot=50)
 saveRDS(m9, file.path('fittedCentileCurves', 'm9.rds'))
-
 # Absolute disc torsion (save as 'm10')
-m10              <- gcrq(absOrient ~ ps(SER), data=inputD, tau=seq(0.05, 0.95, 0.05), n.boot=50)
+m10              <- gcrq(absDiscTors ~ ps(SER), data=inputD, tau=seq(0.05, 0.95, 0.05), n.boot=50)
 saveRDS(m10, file.path('fittedCentileCurves', 'm10.rds'))
+
+
+
+
+#### For SENSITIVITY ANALYSIS 5 in 'survivalAnalyses.R': reconstruct the centile #### 
+####      charts using the data derived based on the 0.01% outlier threshold     ####
+
+# Randomly select one eye (25,447 eyes)
+set.seed(1)
+inputD_SA        <- subset(d, !outlierSA) %>% group_by(id) %>% slice_sample(n = 1)
+nrow(inputD_SA)
+
+# Extract relevant columns
+inputD           <- inputD_SA %>% select(name, age, sex, catSurgery1, SER, FD_artery, FD_vein, AVR, Tortuosity_density_artery, Tortuosity_density_vein, conc_rp_artery, conc_rp_vein, DFD_DML_ratio, discTilt, absDiscTors)
+
+# Arterial fractal dimension (save as 'm1_sensitivity')
+m1_SA            <- gcrq(FD_artery ~ ps(SER), data=inputD_SA, tau=seq(0.05, 0.95, 0.05), n.boot=50)
+saveRDS(m1_SA, file.path('fittedCentileCurves', 'm1_sensitivity.rds'))
+
+# Venous fractal dimension (save as 'm2_sensitivity')
+m2_SA            <- gcrq(FD_vein ~ ps(SER), data=inputD_SA, tau=seq(0.05, 0.95, 0.05), n.boot=50)
+saveRDS(m2_SA, file.path('fittedCentileCurves', 'm2_sensitivity.rds'))
+
+# AVR (save as 'm3_sensitivity')
+m3_SA            <- gcrq(AVR ~ ps(SER), data=inputD_SA, tau=seq(0.05, 0.95, 0.05), n.boot=50)
+saveRDS(m3_SA, file.path('fittedCentileCurves', 'm3_sensitivity.rds'))
+
+# Arterial tortuosity (save as 'm4_sensitivity')
+m4_SA            <- gcrq(Tortuosity_density_artery ~ ps(SER), data=inputD_SA, tau=seq(0.05, 0.95, 0.05), n.boot=50)
+saveRDS(m4_SA, file.path('fittedCentileCurves', 'm4_sensitivity.rds'))
+
+# Venous tortuosity (save as 'm5_sensitivity')
+m5_SA            <- gcrq(Tortuosity_density_vein ~ ps(SER), data=inputD_SA, tau=seq(0.05, 0.95, 0.05), n.boot=50)
+saveRDS(m5_SA, file.path('fittedCentileCurves', 'm5_sensitivity.rds'))
+
+# Arterial concavity (save as 'm6_sensitivity')
+m6_SA            <- gcrq(conc_rp_artery ~ ps(SER), data=inputD_SA, tau=seq(0.05, 0.95, 0.05), n.boot=50)
+saveRDS(m6_SA, file.path('fittedCentileCurves', 'm6_sensitivity.rds'))
+
+# Venous concavity (save as 'm7_sensitivity')
+m7_SA            <- gcrq(conc_rp_vein ~ ps(SER), data=inputD_SA, tau=seq(0.05, 0.95, 0.05), n.boot=50)
+saveRDS(m7_SA, file.path('fittedCentileCurves', 'm7_sensitivity.rds'))
+
+# DFD_DML_ratio (save as 'm8_sensitivity')
+m8_SA            <- gcrq(DFD_DML_ratio ~ ps(SER), data=inputD_SA, tau=seq(0.05, 0.95, 0.05), n.boot=50)
+saveRDS(m8_SA, file.path('fittedCentileCurves', 'm8_sensitivity.rds'))
+
+# Disc tilt (save as 'm9_sensitivity')
+m9_SA            <- gcrq(discTilt ~ ps(SER), data=inputD_SA, tau=seq(0.05, 0.95, 0.05), n.boot=50)
+saveRDS(m9_SA, file.path('fittedCentileCurves', 'm9_sensitivity.rds'))
+
+# Absolute disc torsion (save as 'm10_sensitivity')
+m10_SA           <- gcrq(absDiscTors ~ ps(SER), data=inputD_SA, tau=seq(0.05, 0.95, 0.05), n.boot=50)
+saveRDS(m10_SA, file.path('fittedCentileCurves', 'm10_sensitivity.rds'))
+
 
 
 
