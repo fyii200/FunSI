@@ -25,10 +25,10 @@ source(file.path('code', 'utils.R'))
 
 
 
-#### Display fitted centile curves (CC) ####
+#### Display the fitted centile curves (CC) ####
 
 # Plot and save
-pdf(file.path('figures', 'centileCurves.pdf'), width = 13.5, height = 9) 
+pdf(file.path('figures', 'centileCurves_randomOneEye.pdf'), width = 13.5, height = 9) 
 layout(matrix(1:10, nrow = 2, byrow = T))
 plotCC(m1, 'Arterial fractal dimension')
 plotCC(m2, 'Venous fractal dimension')
@@ -49,10 +49,11 @@ dev.off()
 #### Compute FunSI ####
 
 # Loop through all eyes in the dataset 
-d <- d %>% rowwise() %>% mutate(FunSI = getFunSI(SER, FD_artery, FD_vein, AVR, Tortuosity_density_artery, Tortuosity_density_vein, conc_rp_artery, conc_rp_vein, DFD_DML_ratio, discTilt, absDiscTors))
+d                 <- d %>% rowwise() %>% mutate(FunSI = list(getFunSI(SER, FD_artery, FD_vein, AVR, Tortuosity_density_artery, Tortuosity_density_vein, conc_rp_artery, conc_rp_vein, DFD_DML_ratio, discTilt, absDiscTors))) %>% unnest_wider(FunSI, names_sep = '_')
+names(d)[274:285] <- c('FunSI', 'FunSI_SA', 'FunSI_wo_AFD', 'FunSI_wo_VFD', 'FunSI_wo_AVR', 'FunSI_wo_Atort', 'FunSI_wo_Vtort', 'FunSI_wo_Aconc', 'FunSI_wo_Vconc', 'FunSI_wo_DFD_DML_ratio', 'FunSI_wo_Dtilt', 'FunSI_wo_Dtorsion')
 
 # Visualise distribution of FunSI
-ggplot(d, aes(x = FunSI))                                            + 
+ggplot(d, aes(x = FunSI))                                                 + 
   geom_histogram(bins = 20, alpha = 0.5) + labs(x = 'FunSI', y = 'Count') + 
   scale_x_continuous(breaks = pretty_breaks(15))                          + 
   scale_y_continuous(breaks = pretty_breaks(10))                          + 
@@ -60,26 +61,5 @@ ggplot(d, aes(x = FunSI))                                            +
 
 # Save FunSI for each eye
 write.csv(d, file.path('data', 'FunSI.csv'), row.names = F)
-
-
-
-
-d$FunSI     <- NA
-for(i in 1:nrow(d)){
-  d$FunSI[i]   <- getFunSI(d$SER[i],
-                                d$FD_artery[i],
-                                d$FD_vein[i],
-                                d$AVR[i],
-                                d$Tortuosity_density_artery[i],
-                                d$Tortuosity_density_vein[i],
-                                d$conc_rp_artery[i],
-                                d$conc_rp_vein[i],
-                                d$DFD_DML_ratio[i],
-                                d$discTilt[i],
-                                d$absDiscTors[i]) }
-
-
-
-
 
 
