@@ -270,7 +270,7 @@ tab_model(coxph(Surv(rhegmaRDcumYear, rhegmaRD) ~ indSER + scale(indFunSI_wo_Vco
 tab_model(coxph(Surv(rhegmaRDcumYear, rhegmaRD) ~ indSER + scale(indFunSI_wo_VFD) + age + sex + townsend + ethnicBinary + diabetes + hypertension + previousTrauma, data = RDdata))
 tab_model(coxph(Surv(rhegmaRDcumYear, rhegmaRD) ~ indSER + scale(indFunSI_wo_Vtort) + age + sex + townsend + ethnicBinary + diabetes + hypertension + previousTrauma, data = RDdata))
 
-# Subgroup analysis: FRO included as another covariate
+# SUBGROUP ANALYSIS: FRO included as another covariate
 # Compute FRO in a subset of IDs not previously used to train the FRO model (15,979 IDs)
 RDdataSub                 <- subset(RDdata, !is.na(indPredSER_TTA)); nrow(RDdataSub)
 RDdataSub$indFRO          <- residuals(lm(indPredSER_TTA ~ indSER, RDdataSub))
