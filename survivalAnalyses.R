@@ -163,7 +163,7 @@ d                                  <- subset(d, !outlier) %>% group_by(id) %>% m
                                                                                       indIOP                    = ifelse(sum(!is.na(IOP)) == 2, (IOP[1] + IOP[2]) / 2, IOP),
                                                                                       indCH                     = ifelse(sum(!is.na(CH)) == 2, (CH[1] + CH[2]) / 2, CH))
 
-# Get data from the worse (more myopic) eye (for a senstivity analysis later)
+# Extract data from the worse (more myopic) eye (for a senstivity analysis later)
 d                                  <- d %>% mutate(worseEye                  = which(SER == min(SER)),
                                                    worseSER                  = ifelse(sum(!is.na(SER)) == 2, SER[worseEye], SER),
                                                    worseFunSI                = ifelse(sum(!is.na(FunSI)) == 2, FunSI[worseEye], FunSI),
