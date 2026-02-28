@@ -183,7 +183,7 @@ nrow(RDdata)
 variables                 <- c('indSER', 'indFunSI', 'age', 'sex', 'townsend', 'ethnicBinary', 'diabetes', 'hypertension', 'previousTrauma', 'rhegmaRD', 'rhegmaRDcumYear')
 mcar_test(RDdata[, variables])
 
-# Complete-case analysis because MCAR assumption was supported (37 IDs removed, 25,030 remained)
+# Complete-case analysis because MCAR assumption was met (37 IDs removed, 25,030 remained)
 RDdata                    <- subset(RDdata, !is.na(townsend))
 nrow(RDdata)
 
@@ -311,7 +311,7 @@ tab_model(sens); max(vif(sens)); sd(RDdataSens$indFunSI_SA)
 POAGdata                    <- subset(d, !duplicated(id) & glaucomaObservedPeriod > 0)
 nrow(POAGdata)
 
-# Little's MCAR test assumption not supported
+# Little's MCAR test assumption not met
 variables                   <- c('indSER', 'indFunSI', 'age', 'sex', 'townsend', 'ethnicBinary', 'diabetes', 'hypertension', 'indIOP', 'indCH', 'POAG', 'POAGcumYear')
 mcar_test(POAGdata[, variables])
 
